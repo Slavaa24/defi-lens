@@ -3,31 +3,41 @@ import Calculator from "./Calculator";
 import Pools from "./Pools";
 import Portfolio from "./Portfolio";
 
-const tabs = ["Calculator", "Pools", "Portfolio"];
+const tabs = [
+  { id: "Calculator", icon: "⚡" },
+  { id: "Pools", icon: "🌊" },
+  { id: "Portfolio", icon: "📊" },
+];
 
-function App() {
+export default function App() {
   const [activeTab, setActiveTab] = useState("Calculator");
 
   return (
-    <div style={{ background: "#0f0f0f", minHeight: "100vh", color: "#fff", fontFamily: "Inter, sans-serif" }}>
-      
-      {/* Header */}
-      <div style={{ borderBottom: "1px solid #222", padding: "20px 40px", display: "flex", alignItems: "center", gap: "40px" }}>
-        <h1 style={{ margin: 0, fontSize: "20px" }}>⚡ DeFi Lens</h1>
-        <div style={{ display: "flex", gap: "8px" }}>
+    <div style={{ background: "#0a0a0a", minHeight: "100vh", color: "#fff", fontFamily: "'Inter', sans-serif" }}>
+      <div style={{ borderBottom: "1px solid #161616", padding: "0 40px", display: "flex", alignItems: "center", gap: "40px", height: "60px", position: "sticky", top: 0, background: "#0a0a0aee", backdropFilter: "blur(12px)", zIndex: 100 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "18px" }}>⚡</span>
+          <span style={{ fontWeight: "700", fontSize: "16px", letterSpacing: "-0.3px" }}>DeFi Lens</span>
+        </div>
+        <div style={{ display: "flex", gap: "4px" }}>
           {tabs.map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{
-              background: activeTab === tab ? "#3b82f6" : "transparent",
-              border: activeTab === tab ? "none" : "1px solid #333",
-              borderRadius: "8px", padding: "8px 16px", color: "#fff",
-              cursor: "pointer", fontSize: "14px"
-            }}>{tab}</button>
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              background: activeTab === tab.id ? "#161616" : "transparent",
+              border: activeTab === tab.id ? "1px solid #222" : "1px solid transparent",
+              borderRadius: "8px", padding: "6px 14px", color: activeTab === tab.id ? "#fff" : "#555",
+              cursor: "pointer", fontSize: "13px", fontWeight: activeTab === tab.id ? "500" : "400",
+              transition: "all 0.15s"
+            }}>
+              {tab.icon} {tab.id}
+            </button>
           ))}
+        </div>
+        <div style={{ marginLeft: "auto", fontSize: "11px", color: "#333", letterSpacing: "0.5px" }}>
+          BETA
         </div>
       </div>
 
-      {/* Content */}
-      <div style={{ padding: "40px", display: "flex", justifyContent: "center" }}>
+      <div style={{ padding: "40px 20px", display: "flex", justifyContent: "center" }}>
         {activeTab === "Calculator" && <Calculator />}
         {activeTab === "Pools" && <Pools />}
         {activeTab === "Portfolio" && <Portfolio />}
@@ -35,5 +45,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
