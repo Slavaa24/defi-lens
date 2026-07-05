@@ -1,5 +1,46 @@
 # DECISIONS.md
 
+## Deployment migration: Vercel → Cloudflare Pages (July 2026)
+
+33. **Handlers rewritten to the Fetch API, business logic untouched.** Vercel's
+    Node `(req, res)` handlers became Pages Functions exporting `onRequest(context)`
+    that return `Response` objects. Every route keeps its path (`/api/...`), methods,
+    status codes, error messages, cookies and JSON shapes byte-for-byte where possible;
+    all DB/RPC/pricing/math logic was copied verbatim (env threading aside). The
+    frontend needed no changes beyond one dev-hint string in `src/services/api.js`.
+
+34. **Env vars via `context.env`, not `process.env`.** Workers expose bindings per
+    request, so `_lib` helpers now take `env` as a parameter (`getDb(env)`,
+    `discoverPositions(owner, env)`, …). Locally they come from `.dev.vars`
+    (`.dev.vars.example` committed, real file gitignored); in production from
+    Pages project secrets.
+
+35. **`Secure` cookie flag derived from the request protocol** instead of
+    `VERCEL_ENV`: https → `Secure`, plain-http `wrangler pages dev` → not, matching
+    the old prod/dev behaviour without a platform-specific env var.
+
+36. **Shared code stays in `functions/api/_lib/`.** Pages Functions do not create
+    routes for underscore-prefixed files/dirs, and these modules export no
+    `onRequest` anyway, so they are import-only — the old `/api/_lib` layout and
+    relative imports survive unchanged.
+
+37. **`vercel.json` deleted with no replacement.** Cloudflare Pages serves
+    `index.html` for unknown paths automatically when the build contains no
+    `404.html`, which is exactly the old SPA rewrite. `wrangler.toml` only pins
+    the output dir (`dist`) and enables `nodejs_compat` as a safety net for
+    transitive Node imports in dependencies.
+
+38. **Cron becomes a separate scheduler Worker (documented, built in Phase 3).**
+    Pages Functions can't own cron triggers, so the plan (README "Scheduled jobs")
+    is a tiny standalone Worker with two Cron Triggers that calls the deployed
+    `/api/cron/*` endpoints with `Bearer CRON_SECRET`. The endpoints themselves
+    stay in this repo, keeping all logic in one place; SPEC §1 updated accordingly.
+
+39. **In-memory rate limits/caches keep their old semantics.** The per-instance
+    Maps in `/api/balances` now live per warm Workers isolate — the same
+    best-effort guarantee as per warm Vercel lambda (decision 10). A durable
+    store is still the Phase 3+ upgrade path.
+
 ## Phase 2 (SIWE auth, Supabase, wallet manager, Dashboard)
 
 21. **On-chain discovery instead of subgraphs.** SPEC §5.5 says to query the official

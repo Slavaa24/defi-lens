@@ -17,17 +17,20 @@ do not stub out things marked as required for that phase.
 - Styling: Tailwind CSS
 - Charts: Recharts
 - Wallet: wagmi v2 + viem + RainbowKit (connect + Sign-In with Ethereum)
-- Backend: Vercel Serverless Functions (Node 20) in /api
-- DB: Supabase (Postgres) — used via service-role key ONLY from serverless
-  functions, never from the browser
+- Backend: Cloudflare Pages Functions (Workers runtime) in /functions,
+  routed under /api/*
+- DB: Supabase (Postgres) — used via service-role key ONLY from Pages
+  Functions, never from the browser
 - Auth: SIWE (EIP-4361). Session = httpOnly JWT cookie, 7-day expiry
 - Alerts delivery: Telegram Bot API
-- Scheduled jobs: Vercel Cron hitting protected /api/cron/* endpoints
-- Error tracking: Sentry (frontend + serverless)
+- Scheduled jobs: a dedicated Cloudflare Worker with Cron Triggers hitting
+  protected /api/cron/* endpoints (Bearer CRON_SECRET); see README
+- Error tracking: Sentry (frontend + functions)
 - Analytics: Plausible (script tag, no cookies)
-- Deploy: Vercel. Repo on GitHub. ESLint + Prettier configured.
+- Deploy: Cloudflare Pages. Repo on GitHub. ESLint + Prettier configured.
 
-ENV VARS (all server-side unless prefixed VITE_):
+ENV VARS (all server-side unless prefixed VITE_; server-side vars are
+Cloudflare Pages bindings — dashboard secrets in prod, .dev.vars locally):
   SUPABASE_URL, SUPABASE_SERVICE_KEY
   JWT_SECRET
   ALCHEMY_KEY                (Ethereum + Base RPC/API)
@@ -66,7 +69,7 @@ ENV VARS (all server-side unless prefixed VITE_):
     ilMath.js          — pure functions (see §4), unit-tested with Vitest
     format.js          — Intl.NumberFormat helpers ($1.2M, 2-dec %)
     validate.js        — EVM address check, input clamps
-/api
+/functions/api        — Cloudflare Pages Functions (each file exports onRequest)
   auth/nonce.js, auth/verify.js, auth/logout.js, auth/me.js
   balances.js
   positions/index.js   — GET list, POST refresh
@@ -82,7 +85,8 @@ ENV VARS (all server-side unless prefixed VITE_):
                          uniswap.js (subgraph queries), prices.js, math.js
 /tests
   ilMath.test.js       — required, cover edge cases from §4
-vercel.json            — cron schedules, function config
+wrangler.toml          — Pages config (build output dir, compatibility flags);
+                         cron schedules live in a separate Worker (see README)
 
 ----------------------------------------------------------------
 3. DATABASE SCHEMA (Supabase SQL migration)
@@ -245,7 +249,7 @@ Every async view has skeleton, error-with-retry, and empty states.
 - ilMath covered by Vitest tests incl. edge cases (§4).
 - Sentry wired on both sides; cron failures must be visible in Sentry.
 - README: setup, env vars, Supabase migration, Telegram bot setup,
-  Stripe/Coinbase webhook setup, Vercel cron config, deploy steps.
+  Stripe/Coinbase webhook setup, Cloudflare cron Worker config, deploy steps.
 
 ----------------------------------------------------------------
 8. PHASES (implement in this order, each independently shippable)
