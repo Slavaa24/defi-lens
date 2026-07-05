@@ -37,6 +37,29 @@ export function formatTokenAmount(n) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 4 }).format(v)
 }
 
+// Token prices span many magnitudes (0.000004 SHIB … 96000 BTC);
+// show 4 significant digits instead of fixed decimals.
+export function formatPrice(n) {
+  if (n == null || !Number.isFinite(Number(n))) return '—'
+  const v = Number(n)
+  if (v === 0) return '0'
+  return new Intl.NumberFormat('en-US', { maximumSignificantDigits: 4 }).format(v)
+}
+
+// Coarse age: "3d", "2mo" — enough for "how old is this position".
+export function timeAgo(iso) {
+  if (!iso) return '—'
+  const ms = Date.now() - new Date(iso).getTime()
+  if (!Number.isFinite(ms) || ms < 0) return '—'
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 60) return `${minutes}m`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days < 60) return `${days}d`
+  return `${Math.floor(days / 30)}mo`
+}
+
 export function shortAddress(address) {
   if (!address || address.length < 10) return address || ''
   return `${address.slice(0, 6)}…${address.slice(-4)}`
