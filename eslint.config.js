@@ -29,6 +29,7 @@ export default [
         URLSearchParams: 'readonly',
         Request: 'readonly',
         Response: 'readonly',
+        caches: 'readonly',
         Intl: 'readonly',
         process: 'readonly',
       },

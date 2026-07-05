@@ -2,6 +2,19 @@
 
 ## DefiLlama proxy (July 2026)
 
+53. **Cold-fetch survivability.** wrangler tail showed /api/pools dying "Canceled":
+    the client's 10s fetch timeout aborted the request while the server was still
+    inside the ~30s cold DefiLlama fetch, so the cache never filled and the page
+    error-looped. Fixes: (a) client timeout raised to 60s for /api/pools and
+    /api/pool-chart only, with fetchJson-internal retries disabled there so React
+    Query's single retry is the only retry layer (no stacked aborts); (b) the
+    upstream fetch + cache fill run under `context.waitUntil` and concurrent cold
+    requests share one in-flight promise per isolate, so a client abort can't
+    waste the work; (c) completed responses are also stored in the Cloudflare
+    Cache API (`caches.default`, keyed on the normalized request URL) so one
+    finished fetch serves all visitors at that edge; (d) the pools loading state
+    shows a "first load can take up to 30s" note after 5s.
+
 52. **All DefiLlama calls moved server-side** (`/api/pools`, `/api/pool-chart?pool=`)
     because direct browser fetches to yields.llama.fi fail from some regions/ISPs.
     The pools proxy trims the ~18k-pool payload to exactly the fields the UI uses

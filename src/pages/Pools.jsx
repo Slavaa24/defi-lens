@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import usePools from '../hooks/usePools'
 import useDebounce from '../hooks/useDebounce'
 import useWatchlist from '../hooks/useWatchlist'
@@ -16,6 +16,23 @@ const CHAINS = ['All', 'Base', 'Ethereum', 'Arbitrum', 'Optimism', 'Polygon']
 const SUPPORTED = CHAINS.slice(1)
 const PAGE_SIZE = 50
 const COMPARE_MAX = 4
+const SLOW_LOAD_NOTE_MS = 5000
+
+// Shown after 5s of loading — the server's first DefiLlama fetch of the day
+// can take ~30s before its caches warm up.
+function SlowLoadNote() {
+  const [slow, setSlow] = useState(false)
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), SLOW_LOAD_NOTE_MS)
+    return () => clearTimeout(timer)
+  }, [])
+  if (!slow) return null
+  return (
+    <p className="text-xs text-txt-secondary text-center mt-3">
+      First load can take up to 30s while we warm the pools data — hang tight…
+    </p>
+  )
+}
 
 export default function Pools() {
   useDocumentTitle('Pools Explorer')
@@ -172,11 +189,14 @@ export default function Pools() {
       </div>
 
       {isLoading && (
-        <div className="card p-4 flex flex-col gap-3">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <Skeleton key={i} className="h-9" />
-          ))}
-        </div>
+        <>
+          <div className="card p-4 flex flex-col gap-3">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <Skeleton key={i} className="h-9" />
+            ))}
+          </div>
+          <SlowLoadNote />
+        </>
       )}
 
       {isError && (

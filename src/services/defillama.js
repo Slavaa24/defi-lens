@@ -8,13 +8,20 @@ import { fetchJson } from './http'
 // Full pools list. Shape per pool:
 // { id, symbol, project, chain, tvlUsd, apy, apyBase, apyReward,
 //   apyPct1D/7D/30D, ilRisk, stablecoin, poolMeta, dataDays }
+// Cold cache on the server means waiting out a ~30s upstream fetch, so these
+// two calls get a 60s budget (other endpoints keep the 10s default). Internal
+// fetchJson retries are off — React Query's retry is the single retry layer,
+// so aborted attempts never stack.
 export async function getPools() {
-  const data = await fetchJson('/api/pools')
+  const data = await fetchJson('/api/pools', { timeoutMs: 60_000, retries: 0 })
   return data.pools || []
 }
 
 // APY/TVL history for one pool (drawer chart): [{ date, apy, tvlUsd }]
 export async function getPoolChart(poolId) {
-  const data = await fetchJson(`/api/pool-chart?pool=${encodeURIComponent(poolId)}`)
+  const data = await fetchJson(`/api/pool-chart?pool=${encodeURIComponent(poolId)}`, {
+    timeoutMs: 60_000,
+    retries: 0,
+  })
   return data.points || []
 }
