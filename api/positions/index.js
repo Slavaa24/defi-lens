@@ -1,0 +1,150 @@
+import { getDb, unwrap } from '../_lib/db.js'
+import { requireSession } from '../_lib/auth.js'
+import { discoverPositions, withIl } from '../_lib/uniswap.js'
+
+const REFRESH_COOLDOWN_MS = 60_000
+
+async function loadWallets(db, userId) {
+  return unwrap(
+    await db
+      .from('wallets')
+      .select('id, address, label, created_at')
+      .eq('user_id', userId)
+      .order('created_at'),
+    'list wallets'
+  )
+}
+
+async function loadPositions(db, walletIds) {
+  if (walletIds.length === 0) return []
+  return unwrap(
+    await db
+      .from('positions')
+      .select()
+      .in('wallet_id', walletIds)
+      .order('first_seen', { ascending: false }),
+    'list positions'
+  )
+}
+
+// Re-discover one wallet's positions and sync the table:
+// new position -> insert with entry_snapshot = current state;
+// existing      -> update liquidity/last_snapshot/in_range;
+// closed        -> delete (liquidity now 0 or NFT no longer owned).
+async function refreshWallet(db, wallet) {
+  const { positions: found, errors } = await discoverPositions(wallet.address)
+
+  const existing = unwrap(
+    await db.from('positions').select().eq('wallet_id', wallet.id),
+    'load positions'
+  )
+  const byKey = new Map(existing.map((p) => [`${p.chain}:${p.nft_token_id}`, p]))
+  const seen = new Set()
+  const now = new Date().toISOString()
+
+  const rows = found.map((f) => {
+    const key = `${f.chain}:${f.nft_token_id}`
+    seen.add(key)
+    const prev = byKey.get(key)
+    const entry = prev?.entry_snapshot ?? f.snapshot
+    const last = withIl(f.snapshot, entry)
+    return {
+      ...(prev ? { id: prev.id } : {}),
+      wallet_id: wallet.id,
+      protocol: f.protocol,
+      chain: f.chain,
+      pool_address: f.pool_address,
+      nft_token_id: f.nft_token_id,
+      token0: { ...f.token0, fee: f.fee },
+      token1: f.token1,
+      tick_lower: f.tick_lower,
+      tick_upper: f.tick_upper,
+      liquidity: f.liquidity,
+      entry_snapshot: entry,
+      last_snapshot: last,
+      in_range: f.in_range,
+      updated_at: now,
+      ...(prev ? {} : { first_seen: now }),
+    }
+  })
+
+  if (rows.length > 0) {
+    unwrap(
+      await db.from('positions').upsert(rows, { onConflict: 'wallet_id,chain,nft_token_id' }),
+      'upsert positions'
+    )
+  }
+
+  // remove closed positions — but only when discovery fully succeeded,
+  // otherwise a chain outage would wrongly wipe that chain's rows
+  const failedChains = new Set(errors.map((e) => e.chain))
+  const stale = existing.filter((p) => !seen.has(`${p.chain}:${p.nft_token_id}`) && !failedChains.has(p.chain))
+  if (stale.length > 0) {
+    unwrap(
+      await db.from('positions').delete().in('id', stale.map((p) => p.id)),
+      'prune closed positions'
+    )
+  }
+
+  return errors
+}
+
+export default async function handler(req, res) {
+  const session = await requireSession(req, res)
+  if (!session) return
+
+  try {
+    const db = getDb()
+    const wallets = await loadWallets(db, session.userId)
+
+    if (req.method === 'GET') {
+      const positions = await loadPositions(db, wallets.map((w) => w.id))
+      return res.status(200).json({ positions, wallets })
+    }
+
+    if (req.method === 'POST') {
+      const walletId = String(req.body?.walletId || '').trim() || null
+      let targets = wallets
+      if (walletId) {
+        // wallet-scoped refresh (fired right after adding a wallet) skips the
+        // cooldown — it's naturally limited by the 5-wallet cap
+        targets = wallets.filter((w) => w.id === walletId)
+        if (targets.length === 0) return res.status(404).json({ error: 'Wallet not found.' })
+      } else {
+        const user = unwrap(
+          await db.from('users').select('last_refresh_at').eq('id', session.userId).single(),
+          'load user'
+        )
+        const last = user.last_refresh_at ? new Date(user.last_refresh_at).getTime() : 0
+        const elapsed = Date.now() - last
+        if (elapsed < REFRESH_COOLDOWN_MS) {
+          const retryAfter = Math.ceil((REFRESH_COOLDOWN_MS - elapsed) / 1000)
+          res.setHeader('Retry-After', String(retryAfter))
+          return res.status(429).json({ error: `Refresh is limited to once a minute — try again in ${retryAfter}s.`, retryAfter })
+        }
+        unwrap(
+          await db.from('users').update({ last_refresh_at: new Date().toISOString() }).eq('id', session.userId),
+          'stamp refresh'
+        )
+      }
+
+      const errors = []
+      for (const wallet of targets) {
+        try {
+          errors.push(...(await refreshWallet(db, wallet)))
+        } catch (err) {
+          console.error(`refresh ${wallet.address} failed:`, err.message)
+          errors.push({ chain: 'all', wallet: wallet.address, message: 'Position discovery failed for this wallet.' })
+        }
+      }
+
+      const positions = await loadPositions(db, wallets.map((w) => w.id))
+      return res.status(200).json({ positions, wallets, errors })
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' })
+  } catch (err) {
+    console.error('positions error:', err.message)
+    return res.status(err.status || 500).json({ error: err.status ? err.message : 'Position operation failed.' })
+  }
+}
