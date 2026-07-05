@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import usePools from '../hooks/usePools'
 import useDebounce from '../hooks/useDebounce'
+import useWatchlist from '../hooks/useWatchlist'
+import useDocumentTitle from '../hooks/useDocumentTitle'
 import PoolRow from '../components/PoolRow'
+import PoolDrawer from '../components/PoolDrawer'
 import Skeleton from '../components/Skeleton'
 import ErrorState from '../components/ErrorState'
 import EmptyState from '../components/EmptyState'
@@ -10,18 +13,11 @@ import { parseNumber } from '../utils/validate'
 const CHAINS = ['All', 'Base', 'Ethereum', 'Arbitrum', 'Optimism', 'Polygon']
 const SUPPORTED = CHAINS.slice(1)
 const PAGE_SIZE = 50
-const WATCHLIST_KEY = 'defilens:watchlist'
-
-function loadWatchlist() {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHLIST_KEY) || '[]'))
-  } catch {
-    return new Set()
-  }
-}
 
 export default function Pools() {
+  useDocumentTitle('Pools Explorer')
   const { data: pools, isLoading, isError, refetch } = usePools()
+  const { watchlist, toggle: toggleStar } = useWatchlist()
 
   const [chain, setChain] = useState('All')
   const [search, setSearch] = useState('')
@@ -30,19 +26,9 @@ export default function Pools() {
   const [sortBy, setSortBy] = useState('tvl')
   const [onlyStarred, setOnlyStarred] = useState(false)
   const [visible, setVisible] = useState(PAGE_SIZE)
-  const [watchlist, setWatchlist] = useState(loadWatchlist)
+  const [selected, setSelected] = useState(null) // pool object for the drawer
 
   const debouncedSearch = useDebounce(search, 400)
-
-  const toggleStar = (id) => {
-    setWatchlist((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      localStorage.setItem(WATCHLIST_KEY, JSON.stringify([...next]))
-      return next
-    })
-  }
 
   const filtered = useMemo(() => {
     if (!pools) return []
@@ -192,6 +178,7 @@ export default function Pools() {
                 pool={pool}
                 starred={watchlist.has(pool.id)}
                 onToggleStar={() => toggleStar(pool.id)}
+                onSelect={() => setSelected(pool)}
               />
             ))}
           </div>
@@ -203,6 +190,7 @@ export default function Pools() {
                 pool={pool}
                 starred={watchlist.has(pool.id)}
                 onToggleStar={() => toggleStar(pool.id)}
+                onSelect={() => setSelected(pool)}
               />
             ))}
           </div>
@@ -218,6 +206,15 @@ export default function Pools() {
             )}
           </div>
         </>
+      )}
+
+      {selected && (
+        <PoolDrawer
+          pool={selected}
+          starred={watchlist.has(selected.id)}
+          onToggleStar={() => toggleStar(selected.id)}
+          onClose={() => setSelected(null)}
+        />
       )}
     </div>
   )

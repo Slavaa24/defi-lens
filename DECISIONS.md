@@ -1,5 +1,43 @@
 # DECISIONS.md
 
+## Product-completeness pass (July 2026, pre-Phase 3)
+
+40. **Watchlist DB sync is additive, not exclusive.** SPEC §5.2 says the localStorage
+    watchlist "migrates to DB when user signs in". Implemented as merge-and-mirror:
+    on the first signed-in load the localStorage set is POSTed to `/api/watchlist`
+    (idempotent upsert), the server's union becomes the source of truth, and it keeps
+    mirroring back to localStorage so the list survives signing out. Toggles are
+    optimistic; on a failed write the client refetches instead of guessing. New
+    `watchlist` table ships in `supabase/migration2.sql` (deny-all RLS like the rest);
+    caps: 500 pools per user, 300 ids per merge call.
+
+41. **Pool drawer reads from the already-loaded pools row + one chart call.** Clicking
+    a row opens a right-side drawer (full-width under 448px) fed by the row object —
+    no second detail request — plus `https://yields.llama.fi/chart/{pool}` for APY
+    history (React Query, 10-min staleTime, last 90 points). Extra fields
+    (apyBase/apyReward/ilRisk/stablecoin/poolMeta) are now kept when mapping
+    `/pools`. The drawer has its own skeleton/error-with-retry/empty states and
+    links out to the DefiLlama pool page.
+
+42. **Pricing became a real comparison table.** The two feature cards were replaced
+    with a Free/Pro column table (11 feature rows from the §5.7 tier split), prices in
+    the header, CTA row at the bottom; the Pro button stays disabled "Coming soon" —
+    no payment logic until Phase 4. The table scrolls horizontally inside its card
+    below ~430px, keeping 375-px layouts intact.
+
+43. **Per-page titles via a tiny hook, no helmet dependency.** `useDocumentTitle`
+    sets `"<Page> · DeFi Lens"` and restores the default on unmount; every routed
+    page calls it. SEO pre-rendered /pools/{chain} pages remain Phase 5 scope.
+
+44. **Landing gained a "How it works" section** (3 numbered steps: model → pick →
+    monitor) between features and the pricing teaser; hero tagline (§5.8), 3 feature
+    cards with styled UI mockups, FAQ (6) and CTAs into Calculator/Pools were already
+    in place from Phase 1 and were kept.
+
+45. **Privacy policy updated for the synced watchlist** (was "localStorage only").
+    Footer now carries product + legal nav and a "Data by DefiLlama & CoinGecko"
+    attribution line alongside the §5.8 disclaimer, which renders on every page.
+
 ## Deployment migration: Vercel → Cloudflare Pages (July 2026)
 
 33. **Handlers rewritten to the Fetch API, business logic untouched.** Vercel's

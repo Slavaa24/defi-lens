@@ -15,6 +15,7 @@ import StatCard from '../components/StatCard'
 import { ilV2, hodlValue, poolValue, feesEarned, ilCurve } from '../utils/ilMath'
 import { formatUsd, formatPercent } from '../utils/format'
 import { parseNumber } from '../utils/validate'
+import useDocumentTitle from '../hooks/useDocumentTitle'
 
 const PRESETS = [-50, -25, -10, 10, 25, 50, 100, 400]
 
@@ -25,6 +26,7 @@ function readToken(params, idKey, symbolKey) {
 }
 
 export default function Calculator() {
+  useDocumentTitle('IL Calculator')
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [tokenA, setTokenA] = useState(() => readToken(searchParams, 'ta', 'tas'))

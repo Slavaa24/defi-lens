@@ -1,4 +1,23 @@
 import { Link } from 'react-router-dom'
+import useDocumentTitle from '../hooks/useDocumentTitle'
+
+const STEPS = [
+  {
+    n: '1',
+    title: 'Model before you deposit',
+    text: 'Run price scenarios in the IL calculator: see projected impermanent loss, fee offsets and the HODL comparison in seconds.',
+  },
+  {
+    n: '2',
+    title: 'Pick a pool that earns it',
+    text: 'Filter thousands of pools by chain, APY and TVL, open any pool for its APY history, and star the ones worth watching.',
+  },
+  {
+    n: '3',
+    title: 'Monitor without staring',
+    text: 'Go Pro to track your Uniswap v3 positions across wallets — real-time IL, fee earnings and a Telegram ping when you drift out of range.',
+  },
+]
 
 const FEATURES = [
   {
@@ -88,6 +107,7 @@ const FAQ = [
 ]
 
 export default function Landing() {
+  useDocumentTitle()
   return (
     <div className="flex flex-col gap-20 pt-8">
       {/* hero */}
@@ -126,6 +146,22 @@ export default function Landing() {
             </div>
           </Link>
         ))}
+      </section>
+
+      {/* how it works */}
+      <section>
+        <h2 className="text-2xl font-bold text-center mb-8">How it works</h2>
+        <div className="grid md:grid-cols-3 gap-5">
+          {STEPS.map((s) => (
+            <div key={s.n} className="card p-6">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-r from-accent-from to-accent-to text-white font-bold flex items-center justify-center mb-4">
+                {s.n}
+              </div>
+              <h3 className="font-semibold mb-1.5">{s.title}</h3>
+              <p className="text-sm text-txt-secondary">{s.text}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* pricing teaser */}

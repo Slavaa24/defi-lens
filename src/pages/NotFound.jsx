@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import EmptyState from '../components/EmptyState'
+import useDocumentTitle from '../hooks/useDocumentTitle'
 
 export default function NotFound() {
+  useDocumentTitle('Page not found')
   return (
     <div className="max-w-xl mx-auto pt-12">
       <EmptyState

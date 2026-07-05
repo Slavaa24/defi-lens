@@ -11,6 +11,7 @@ import EmptyState from '../components/EmptyState'
 import usePositions from '../hooks/usePositions'
 import { isEvmAddress, looksLikeEns } from '../utils/validate'
 import { formatUsd, shortAddress } from '../utils/format'
+import useDocumentTitle from '../hooks/useDocumentTitle'
 
 const ensClient = createPublicClient({ chain: mainnet, transport: http() })
 const REFRESH_COOLDOWN_S = 60
@@ -248,6 +249,7 @@ function DashboardInner() {
 }
 
 export default function Dashboard() {
+  useDocumentTitle('Dashboard')
   return (
     <ProGate>
       <DashboardInner />

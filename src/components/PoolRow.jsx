@@ -20,13 +20,16 @@ export function ChainBadge({ chain }) {
   )
 }
 
-export default function PoolRow({ pool, starred, onToggleStar }) {
+export default function PoolRow({ pool, starred, onToggleStar, onSelect }) {
   const apy7dTone =
     pool.apyPct7D == null ? 'text-zinc-600' : pool.apyPct7D >= 0 ? 'text-positive' : 'text-negative'
 
   const star = (
     <button
-      onClick={onToggleStar}
+      onClick={(e) => {
+        e.stopPropagation()
+        onToggleStar()
+      }}
       className={`text-base leading-none transition-colors ${
         starred ? 'text-warning' : 'text-zinc-700 hover:text-zinc-400'
       }`}
@@ -40,7 +43,10 @@ export default function PoolRow({ pool, starred, onToggleStar }) {
   return (
     <>
       {/* desktop row */}
-      <div className="hidden md:grid grid-cols-[24px_2fr_1.2fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 border-b border-edge/60 hover:bg-card/60 transition-colors">
+      <div
+        onClick={onSelect}
+        className="hidden md:grid grid-cols-[24px_2fr_1.2fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 border-b border-edge/60 hover:bg-card/60 transition-colors cursor-pointer"
+      >
         {star}
         <span className="font-medium text-sm truncate" title={pool.symbol}>
           {pool.symbol}
@@ -57,7 +63,7 @@ export default function PoolRow({ pool, starred, onToggleStar }) {
       </div>
 
       {/* mobile card */}
-      <div className="md:hidden card p-4 flex flex-col gap-2">
+      <div onClick={onSelect} className="md:hidden card p-4 flex flex-col gap-2 cursor-pointer">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {star}

@@ -1,4 +1,7 @@
+import useDocumentTitle from '../hooks/useDocumentTitle'
+
 export default function Privacy() {
+  useDocumentTitle('Privacy Policy')
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Privacy Policy</h1>
@@ -17,9 +20,10 @@ export default function Privacy() {
           <h2 className="font-semibold text-txt-primary mb-1.5">What we process</h2>
           <p>
             Addresses you enter are sent to our servers and third-party data providers (blockchain
-            RPCs, CoinGecko, DefiLlama) to fetch balances and prices. Your watchlist is stored only
-            in your browser’s localStorage. Standard server logs (IP address, request path) are
-            kept briefly for abuse prevention and debugging.
+            RPCs, CoinGecko, DefiLlama) to fetch balances and prices. Your pool watchlist lives in
+            your browser’s localStorage; if you sign in, it also syncs to your account so it
+            follows you across devices. Standard server logs (IP address, request path) are kept
+            briefly for abuse prevention and debugging.
           </p>
         </section>
 

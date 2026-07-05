@@ -12,10 +12,12 @@ import EmptyState from '../components/EmptyState'
 import { ChainBadge } from '../components/PoolRow'
 import { isEvmAddress, looksLikeEns } from '../utils/validate'
 import { formatUsd, formatTokenAmount, shortAddress } from '../utils/format'
+import useDocumentTitle from '../hooks/useDocumentTitle'
 
 const ensClient = createPublicClient({ chain: mainnet, transport: http() })
 
 export default function Portfolio() {
+  useDocumentTitle('Portfolio')
   const [input, setInput] = useState('')
   const [target, setTarget] = useState(null) // { address, label }
   const [inputError, setInputError] = useState('')

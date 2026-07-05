@@ -1,4 +1,7 @@
+import useDocumentTitle from '../hooks/useDocumentTitle'
+
 export default function Terms() {
+  useDocumentTitle('Terms of Service')
   return (
     <div className="max-w-2xl mx-auto prose-invert">
       <h1 className="text-2xl font-bold mb-6">Terms of Service</h1>
