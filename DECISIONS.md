@@ -1,5 +1,48 @@
 # DECISIONS.md
 
+## Product deepening (July 2026, pre-Phase 3)
+
+46. **Net P&L = fees − |IL|, gas explicitly ignored.** Computed client-side from the
+    stored snapshot (`feesUsd − |ilUsd|`); null (rendered "—") when either side is
+    unreliable, per SPEC §4 — an aggregate that silently skipped unknown fees would
+    lie. The dashboard stat shows how many positions the aggregate covers
+    ("fees − IL, 3/5 positions · gas not incl."), and the per-position breakdown
+    popover repeats the gas caveat. Shared via `positionNetPnl()` so card and
+    summary can never disagree.
+
+47. **Snapshots: one row per position per UTC day, last refresh wins.**
+    `position_snapshots` (migration3) is upserted on `(position_id, day)` inside the
+    existing refresh path; a snapshot failure is logged but never sinks the refresh.
+    Until the Phase 3 cron exists, history accumulates only on manual refreshes —
+    the chart's empty state says exactly that. History endpoint
+    (`/api/positions/history`) verifies ownership via a positions→wallets inner
+    join before returning rows (max 365 days).
+
+48. **Pool compare is client-only.** All comparison data already sits in the loaded
+    /pools rows, so compare is pure UI: checkbox column (max 4, extra boxes disable),
+    sticky bottom bar, and a modal table with metrics as rows / pools as columns
+    (scrolls horizontally on mobile). 30d trend uses DefiLlama's `apyPct30D`.
+
+49. **"Newly listed" proxied by DefiLlama's `count` field** (days of history the
+    aggregator has for the pool, exposed as `dataDays`): ≤ 7 days + TVL > $1M =
+    new pool. The pools payload has no listing timestamp; `count` is the closest
+    derived-from-dataset signal, as the task requires. Movers (top-3 gainers/losers)
+    use `apyPct1D` with the same $1M TVL floor to keep dust pools out.
+
+50. **Drawer earnings projection is linear, not compounded.** daily = amt·APY/365
+    etc. at the current APY, labelled as an estimate "before impermanent loss and
+    gas". The volatile-pair caveat (ilRisk=yes && !stablecoin) links to
+    /calculator?amt=…&apy=…&days=30 — token pickers stay empty because DefiLlama
+    symbols don't map reliably to CoinGecko ids.
+
+51. **Saved scenarios reuse the URL-params shape.** `calc_scenarios` (migration3)
+    stores exactly the {ta,tas,tb,tbs,amt,da,db,apy,days} strings the calculator
+    already serialises to the URL — one format for sharing links and saving, loading
+    is just `applyScenario(params)`. POST upserts on (user_id, name) so "Save" over
+    an existing name overwrites (button relabels to "Overwrite"); caps: 50 scenarios,
+    validated key whitelist server-side. Signed-out users see a sign-in hint instead
+    of the manager.
+
 ## Product-completeness pass (July 2026, pre-Phase 3)
 
 40. **Watchlist DB sync is additive, not exclusive.** SPEC §5.2 says the localStorage

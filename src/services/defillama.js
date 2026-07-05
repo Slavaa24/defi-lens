@@ -12,10 +12,13 @@ export async function getPools() {
     apy: p.apy ?? null,
     apyBase: p.apyBase ?? null,
     apyReward: p.apyReward ?? null,
+    apyPct1D: p.apyPct1D ?? null,
     apyPct7D: p.apyPct7D ?? null,
+    apyPct30D: p.apyPct30D ?? null,
     ilRisk: p.ilRisk ?? null, // 'yes' | 'no'
     stablecoin: Boolean(p.stablecoin),
     poolMeta: p.poolMeta ?? null, // e.g. "0.05%" fee tier
+    dataDays: p.count ?? null, // days of history DefiLlama has — low = newly listed
   }))
 }
 

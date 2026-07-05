@@ -6,11 +6,12 @@ tracking with real-time IL, fee earnings and Telegram alerts.
 
 Full specification: [SPEC.md](./SPEC.md). Implementation decisions: [DECISIONS.md](./DECISIONS.md).
 
-**Status: Phase 2 + product polish** — everything from Phase 1 plus Sign-In with
+**Status: Phase 2 + product deepening** — everything from Phase 1 plus Sign-In with
 Ethereum (SIWE), Supabase persistence, wallet manager (up to 5 addresses), a
-read-only Dashboard with live Uniswap v3 positions on Ethereum + Base, pool detail
-drawers with APY history, and an account-synced watchlist. Alerts and billing
-arrive in Phases 3–4.
+Dashboard with live Uniswap v3 positions on Ethereum + Base (net P&L, daily value/IL
+history), pool detail drawers with APY history and an earnings calculator, pool
+comparison, market movers, an account-synced watchlist and saved calculator
+scenarios. Alerts and billing arrive in Phases 3–4.
 
 ## Stack
 
@@ -48,7 +49,10 @@ Create a Supabase project, open the SQL editor and run
 SIWE nonces) with deny-all RLS — only the service-role key used by the Pages
 Functions can touch the data. Then run
 [`supabase/migration2.sql`](./supabase/migration2.sql), which adds the `watchlist`
-table (pool watchlist synced to accounts).
+table (pool watchlist synced to accounts), and
+[`supabase/migration3.sql`](./supabase/migration3.sql), which adds
+`position_snapshots` (daily position history, written on every refresh) and
+`calc_scenarios` (saved calculator scenarios).
 
 ## Environment variables (Phase 2)
 

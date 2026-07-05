@@ -5,6 +5,8 @@ import useWatchlist from '../hooks/useWatchlist'
 import useDocumentTitle from '../hooks/useDocumentTitle'
 import PoolRow from '../components/PoolRow'
 import PoolDrawer from '../components/PoolDrawer'
+import PoolCompare, { CompareBar } from '../components/PoolCompare'
+import TrendingPools from '../components/TrendingPools'
 import Skeleton from '../components/Skeleton'
 import ErrorState from '../components/ErrorState'
 import EmptyState from '../components/EmptyState'
@@ -13,6 +15,7 @@ import { parseNumber } from '../utils/validate'
 const CHAINS = ['All', 'Base', 'Ethereum', 'Arbitrum', 'Optimism', 'Polygon']
 const SUPPORTED = CHAINS.slice(1)
 const PAGE_SIZE = 50
+const COMPARE_MAX = 4
 
 export default function Pools() {
   useDocumentTitle('Pools Explorer')
@@ -25,18 +28,24 @@ export default function Pools() {
   const [minTvl, setMinTvl] = useState('')
   const [sortBy, setSortBy] = useState('tvl')
   const [onlyStarred, setOnlyStarred] = useState(false)
+  const [onlyStable, setOnlyStable] = useState(false)
   const [visible, setVisible] = useState(PAGE_SIZE)
   const [selected, setSelected] = useState(null) // pool object for the drawer
+  const [compareIds, setCompareIds] = useState([]) // 2-4 pool ids to compare
+  const [comparing, setComparing] = useState(false)
 
   const debouncedSearch = useDebounce(search, 400)
 
+  const supportedPools = useMemo(
+    () => (pools || []).filter((p) => SUPPORTED.includes(p.chain)),
+    [pools]
+  )
+
   const filtered = useMemo(() => {
-    if (!pools) return []
     const q = debouncedSearch.trim().toLowerCase()
     const apyFloor = parseNumber(minApy, 0)
     const tvlFloor = parseNumber(minTvl, 0)
-    return pools
-      .filter((p) => SUPPORTED.includes(p.chain))
+    return supportedPools
       .filter((p) => chain === 'All' || p.chain === chain)
       .filter(
         (p) =>
@@ -47,8 +56,19 @@ export default function Pools() {
       .filter((p) => (p.apy ?? 0) >= apyFloor)
       .filter((p) => p.tvlUsd >= tvlFloor)
       .filter((p) => !onlyStarred || watchlist.has(p.id))
+      .filter((p) => !onlyStable || p.stablecoin)
       .sort((a, b) => (sortBy === 'apy' ? (b.apy ?? 0) - (a.apy ?? 0) : b.tvlUsd - a.tvlUsd))
-  }, [pools, chain, debouncedSearch, minApy, minTvl, sortBy, onlyStarred, watchlist])
+  }, [supportedPools, chain, debouncedSearch, minApy, minTvl, sortBy, onlyStarred, onlyStable, watchlist])
+
+  const toggleCompare = (id) => {
+    setCompareIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < COMPARE_MAX ? [...prev, id] : prev
+    )
+  }
+  const comparePools = useMemo(
+    () => compareIds.map((id) => supportedPools.find((p) => p.id === id)).filter(Boolean),
+    [compareIds, supportedPools]
+  )
 
   const shown = filtered.slice(0, visible)
 
@@ -91,7 +111,26 @@ export default function Pools() {
         >
           ★ Watchlist
         </button>
+        <button
+          onClick={() => {
+            setOnlyStable((v) => !v)
+            setVisible(PAGE_SIZE)
+          }}
+          className={`px-3.5 py-1.5 rounded-lg text-sm border transition-colors ${
+            onlyStable
+              ? 'bg-positive/15 border-positive/40 text-positive font-medium'
+              : 'bg-card border-edge text-txt-secondary hover:border-edge-hover'
+          }`}
+          title="Show only stablecoin pairs (per DefiLlama)"
+        >
+          🪙 Stablecoin pairs
+        </button>
       </div>
+
+      {/* trending / market movers */}
+      {!isLoading && !isError && (
+        <TrendingPools pools={supportedPools} onSelect={(p) => setSelected(p)} />
+      )}
 
       {/* filters */}
       <div className="grid grid-cols-2 md:grid-cols-[1fr_140px_140px_150px] gap-3 mb-5">
@@ -163,7 +202,8 @@ export default function Pools() {
       {!isLoading && !isError && filtered.length > 0 && (
         <>
           <div className="hidden md:block card overflow-hidden">
-            <div className="grid grid-cols-[24px_2fr_1.2fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2.5 text-[11px] uppercase tracking-wider text-txt-secondary border-b border-edge">
+            <div className="grid grid-cols-[20px_24px_2fr_1.2fr_1fr_1fr_1fr_1fr] gap-3 px-4 py-2.5 text-[11px] uppercase tracking-wider text-txt-secondary border-b border-edge">
+              <span />
               <span />
               <span>Pool</span>
               <span>Project</span>
@@ -179,6 +219,9 @@ export default function Pools() {
                 starred={watchlist.has(pool.id)}
                 onToggleStar={() => toggleStar(pool.id)}
                 onSelect={() => setSelected(pool)}
+                compareChecked={compareIds.includes(pool.id)}
+                compareDisabled={compareIds.length >= COMPARE_MAX}
+                onToggleCompare={() => toggleCompare(pool.id)}
               />
             ))}
           </div>
@@ -191,6 +234,9 @@ export default function Pools() {
                 starred={watchlist.has(pool.id)}
                 onToggleStar={() => toggleStar(pool.id)}
                 onSelect={() => setSelected(pool)}
+                compareChecked={compareIds.includes(pool.id)}
+                compareDisabled={compareIds.length >= COMPARE_MAX}
+                onToggleCompare={() => toggleCompare(pool.id)}
               />
             ))}
           </div>
@@ -215,6 +261,17 @@ export default function Pools() {
           onToggleStar={() => toggleStar(selected.id)}
           onClose={() => setSelected(null)}
         />
+      )}
+
+      {compareIds.length > 0 && !comparing && (
+        <CompareBar
+          count={compareIds.length}
+          onCompare={() => setComparing(true)}
+          onClear={() => setCompareIds([])}
+        />
+      )}
+      {comparing && comparePools.length >= 2 && (
+        <PoolCompare pools={comparePools} onClose={() => setComparing(false)} />
       )}
     </div>
   )

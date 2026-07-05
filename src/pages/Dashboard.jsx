@@ -3,7 +3,7 @@ import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 import { normalize } from 'viem/ens'
 import ProGate from '../components/ProGate'
-import PositionCard from '../components/PositionCard'
+import PositionCard, { positionNetPnl } from '../components/PositionCard'
 import StatCard from '../components/StatCard'
 import Skeleton from '../components/Skeleton'
 import ErrorState from '../components/ErrorState'
@@ -145,6 +145,10 @@ function DashboardInner() {
   const outOfRange = positions.filter((p) => p.in_range === false).length
   const hasAnyValue = positions.some((p) => p.last_snapshot?.valueUsd != null)
 
+  // Aggregate net P&L over positions where it's computable; null when none are.
+  const pnls = positions.map((p) => positionNetPnl(p.last_snapshot)).filter((v) => v != null)
+  const totalPnl = pnls.length > 0 ? pnls.reduce((sum, v) => sum + v, 0) : null
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -197,7 +201,7 @@ function DashboardInner() {
           )}
 
           {positions.length > 0 && (
-            <div className="grid sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <StatCard
                 label="Total LP value"
                 value={hasAnyValue ? formatUsd(totalValue) : '—'}
@@ -207,6 +211,20 @@ function DashboardInner() {
                 label="Aggregate IL"
                 value={hasAnyValue ? formatUsd(totalIl) : '—'}
                 sub="vs holding entry amounts"
+              />
+              <StatCard
+                label="Net P&L"
+                value={
+                  totalPnl == null
+                    ? '—'
+                    : `${totalPnl >= 0 ? '+' : ''}${formatUsd(totalPnl)}`
+                }
+                sub={
+                  totalPnl == null
+                    ? 'needs fee & IL data'
+                    : `fees − IL, ${pnls.length}/${positions.length} positions · gas not incl.`
+                }
+                tone={totalPnl == null ? 'neutral' : totalPnl >= 0 ? 'positive' : 'negative'}
               />
               <StatCard
                 label="Out of range"

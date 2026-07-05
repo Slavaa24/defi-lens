@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   AreaChart,
@@ -10,7 +11,8 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { getPoolChart } from '../services/defillama'
-import { formatUsdCompact, formatPercent } from '../utils/format'
+import { formatUsd, formatUsdCompact, formatPercent } from '../utils/format'
+import { parseNumber } from '../utils/validate'
 import { ChainBadge } from './PoolRow'
 import Skeleton from './Skeleton'
 import ErrorState from './ErrorState'
@@ -22,6 +24,76 @@ function Stat({ label, value, tone = '' }) {
     <div className="rounded-lg bg-bg border border-edge px-3 py-2.5">
       <p className="text-[11px] uppercase tracking-wider text-txt-secondary mb-0.5">{label}</p>
       <p className={`text-sm font-semibold ${tone}`}>{value}</p>
+    </div>
+  )
+}
+
+// Simple linear projection at the current APY (no compounding) — an estimate,
+// not a promise; APYs move constantly.
+function EarningsCalc({ pool }) {
+  const [amount, setAmount] = useState('1000')
+  const projections = useMemo(() => {
+    const amt = Math.max(0, parseNumber(amount))
+    if (!(amt > 0) || pool.apy == null) return null
+    const yearly = (amt * pool.apy) / 100
+    return { daily: yearly / 365, monthly: yearly / 12, yearly }
+  }, [amount, pool.apy])
+
+  const volatile = pool.ilRisk === 'yes' && !pool.stablecoin
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-3">Earnings calculator</h3>
+      <div className="rounded-lg bg-bg border border-edge p-3.5 flex flex-col gap-3">
+        <div>
+          <label className="label">Deposit (USD)</label>
+          <input
+            type="number"
+            className="input"
+            min="0"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="1000"
+          />
+        </div>
+        {pool.apy == null ? (
+          <p className="text-xs text-txt-secondary">
+            No current APY reported for this pool — projections unavailable.
+          </p>
+        ) : projections ? (
+          <>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              {[
+                ['Daily', projections.daily],
+                ['Monthly', projections.monthly],
+                ['Yearly', projections.yearly],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded-lg border border-edge px-2 py-2">
+                  <p className="text-[11px] text-txt-secondary mb-0.5">{label}</p>
+                  <p className="text-sm font-semibold text-positive">+{formatUsd(value)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-zinc-600">
+              At the current {formatPercent(pool.apy)} APY, linear, before impermanent loss and
+              gas. APYs change constantly.
+            </p>
+            {volatile && (
+              <p className="text-xs text-warning">
+                Volatile pair — impermanent loss can eat into or exceed these fees.{' '}
+                <Link
+                  to={`/calculator?amt=${encodeURIComponent(Math.max(0, parseNumber(amount)) || 1000)}&apy=${encodeURIComponent(pool.apy.toFixed(2))}&days=30`}
+                  className="underline hover:text-txt-primary transition-colors"
+                >
+                  Model it in the IL calculator →
+                </Link>
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-txt-secondary">Enter a deposit amount to project earnings.</p>
+        )}
+      </div>
     </div>
   )
 }
@@ -188,6 +260,8 @@ export default function PoolDrawer({ pool, starred, onToggleStar, onClose }) {
               </ResponsiveContainer>
             )}
           </div>
+
+          <EarningsCalc pool={pool} />
 
           <a
             href={`https://defillama.com/yields/pool/${encodeURIComponent(pool.id)}`}

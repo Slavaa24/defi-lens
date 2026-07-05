@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import TokenSelect from '../components/TokenSelect'
 import StatCard from '../components/StatCard'
+import ScenarioManager from '../components/ScenarioManager'
 import { ilV2, hodlValue, poolValue, feesEarned, ilCurve } from '../utils/ilMath'
 import { formatUsd, formatPercent } from '../utils/format'
 import { parseNumber } from '../utils/validate'
@@ -37,8 +38,8 @@ export default function Calculator() {
   const [apy, setApy] = useState(() => searchParams.get('apy') ?? '')
   const [days, setDays] = useState(() => searchParams.get('days') ?? '30')
 
-  // keep state shareable via URL
-  useEffect(() => {
+  // one params object drives both the shareable URL and saved scenarios
+  const urlParams = useMemo(() => {
     const params = {}
     if (tokenA) {
       params.ta = tokenA.id
@@ -53,8 +54,26 @@ export default function Calculator() {
     if (dB !== '') params.db = dB
     if (apy !== '') params.apy = apy
     if (days !== '') params.days = days
-    setSearchParams(params, { replace: true })
-  }, [tokenA, tokenB, amount, dA, dB, apy, days, setSearchParams])
+    return params
+  }, [tokenA, tokenB, amount, dA, dB, apy, days])
+
+  useEffect(() => {
+    setSearchParams(urlParams, { replace: true })
+  }, [urlParams, setSearchParams])
+
+  const applyScenario = (params) => {
+    setTokenA(
+      params.ta ? { id: params.ta, symbol: params.tas || params.ta.toUpperCase(), name: '' } : null
+    )
+    setTokenB(
+      params.tb ? { id: params.tb, symbol: params.tbs || params.tb.toUpperCase(), name: '' } : null
+    )
+    setAmount(params.amt ?? '')
+    setDA(params.da ?? '')
+    setDB(params.db ?? '')
+    setApy(params.apy ?? '')
+    setDays(params.days ?? '30')
+  }
 
   const result = useMemo(() => {
     const amt = Math.max(0, parseNumber(amount))
@@ -187,6 +206,8 @@ export default function Calculator() {
               A −100% price change means total loss — values are clamped to −99.99% for the math.
             </p>
           )}
+
+          <ScenarioManager currentParams={urlParams} onLoad={applyScenario} />
         </div>
 
         {/* results */}

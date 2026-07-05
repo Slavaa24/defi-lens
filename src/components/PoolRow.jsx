@@ -20,9 +20,34 @@ export function ChainBadge({ chain }) {
   )
 }
 
-export default function PoolRow({ pool, starred, onToggleStar, onSelect }) {
+export default function PoolRow({
+  pool,
+  starred,
+  onToggleStar,
+  onSelect,
+  compareChecked,
+  compareDisabled,
+  onToggleCompare,
+}) {
   const apy7dTone =
     pool.apyPct7D == null ? 'text-zinc-600' : pool.apyPct7D >= 0 ? 'text-positive' : 'text-negative'
+
+  const compareBox = (
+    <input
+      type="checkbox"
+      checked={compareChecked}
+      disabled={compareDisabled && !compareChecked}
+      onChange={onToggleCompare}
+      onClick={(e) => e.stopPropagation()}
+      className="w-3.5 h-3.5 accent-indigo-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30"
+      title={
+        compareDisabled && !compareChecked
+          ? 'Up to 4 pools can be compared'
+          : 'Select for comparison'
+      }
+      aria-label="Select pool for comparison"
+    />
+  )
 
   const star = (
     <button
@@ -45,8 +70,9 @@ export default function PoolRow({ pool, starred, onToggleStar, onSelect }) {
       {/* desktop row */}
       <div
         onClick={onSelect}
-        className="hidden md:grid grid-cols-[24px_2fr_1.2fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 border-b border-edge/60 hover:bg-card/60 transition-colors cursor-pointer"
+        className="hidden md:grid grid-cols-[20px_24px_2fr_1.2fr_1fr_1fr_1fr_1fr] items-center gap-3 px-4 py-3 border-b border-edge/60 hover:bg-card/60 transition-colors cursor-pointer"
       >
+        {compareBox}
         {star}
         <span className="font-medium text-sm truncate" title={pool.symbol}>
           {pool.symbol}
@@ -66,6 +92,7 @@ export default function PoolRow({ pool, starred, onToggleStar, onSelect }) {
       <div onClick={onSelect} className="md:hidden card p-4 flex flex-col gap-2 cursor-pointer">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
+            {compareBox}
             {star}
             <span className="font-medium text-sm truncate">{pool.symbol}</span>
           </div>

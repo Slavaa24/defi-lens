@@ -70,10 +70,46 @@ async function refreshWallet(db, wallet, env) {
   })
 
   if (rows.length > 0) {
-    unwrap(
-      await db.from('positions').upsert(rows, { onConflict: 'wallet_id,chain,nft_token_id' }),
+    const saved = unwrap(
+      await db
+        .from('positions')
+        .upsert(rows, { onConflict: 'wallet_id,chain,nft_token_id' })
+        .select('id, chain, nft_token_id'),
       'upsert positions'
     )
+
+    // Daily history point per position (one row per UTC day; the last refresh
+    // of a day wins). A snapshot failure must never sink the refresh itself.
+    try {
+      const idByKey = new Map(saved.map((p) => [`${p.chain}:${p.nft_token_id}`, p.id]))
+      const day = now.slice(0, 10)
+      const snapshotRows = rows
+        .map((r) => {
+          const positionId = idByKey.get(`${r.chain}:${r.nft_token_id}`)
+          if (!positionId) return null
+          const last = r.last_snapshot
+          return {
+            position_id: positionId,
+            day,
+            value_usd: last.valueUsd,
+            il_pct: last.ilPct,
+            il_usd: last.ilUsd,
+            fees_usd: last.feesUsd,
+            in_range: r.in_range,
+          }
+        })
+        .filter(Boolean)
+      if (snapshotRows.length > 0) {
+        unwrap(
+          await db
+            .from('position_snapshots')
+            .upsert(snapshotRows, { onConflict: 'position_id,day' }),
+          'write position snapshots'
+        )
+      }
+    } catch (err) {
+      console.error('position snapshot write failed:', err.message)
+    }
   }
 
   // remove closed positions — but only when discovery fully succeeded,
