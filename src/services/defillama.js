@@ -1,35 +1,20 @@
 import { fetchJson } from './http'
 
-// Full pools list from DefiLlama yields API. Cached by React Query (10 min).
+// DefiLlama data comes through our own /api proxies (functions/api/pools.js,
+// functions/api/pool-chart.js): direct browser calls to yields.llama.fi are
+// unreliable from some regions/ISPs. Field mapping happens server-side;
+// React Query on top of these keeps its existing caching (10-min staleTime).
+
+// Full pools list. Shape per pool:
+// { id, symbol, project, chain, tvlUsd, apy, apyBase, apyReward,
+//   apyPct1D/7D/30D, ilRisk, stablecoin, poolMeta, dataDays }
 export async function getPools() {
-  const data = await fetchJson('https://yields.llama.fi/pools')
-  return (data.data || []).map((p) => ({
-    id: p.pool,
-    symbol: p.symbol,
-    project: p.project,
-    chain: p.chain,
-    tvlUsd: p.tvlUsd ?? 0,
-    apy: p.apy ?? null,
-    apyBase: p.apyBase ?? null,
-    apyReward: p.apyReward ?? null,
-    apyPct1D: p.apyPct1D ?? null,
-    apyPct7D: p.apyPct7D ?? null,
-    apyPct30D: p.apyPct30D ?? null,
-    ilRisk: p.ilRisk ?? null, // 'yes' | 'no'
-    stablecoin: Boolean(p.stablecoin),
-    poolMeta: p.poolMeta ?? null, // e.g. "0.05%" fee tier
-    dataDays: p.count ?? null, // days of history DefiLlama has — low = newly listed
-  }))
+  const data = await fetchJson('/api/pools')
+  return data.pools || []
 }
 
-// APY/TVL history for one pool (drawer chart).
+// APY/TVL history for one pool (drawer chart): [{ date, apy, tvlUsd }]
 export async function getPoolChart(poolId) {
-  const data = await fetchJson(`https://yields.llama.fi/chart/${encodeURIComponent(poolId)}`)
-  return (data.data || [])
-    .filter((d) => d.timestamp && d.apy != null)
-    .map((d) => ({
-      date: String(d.timestamp).slice(0, 10),
-      apy: d.apy,
-      tvlUsd: d.tvlUsd ?? null,
-    }))
+  const data = await fetchJson(`/api/pool-chart?pool=${encodeURIComponent(poolId)}`)
+  return data.points || []
 }

@@ -26,8 +26,9 @@ npm install
 npm run dev        # Vite dev server (frontend only)
 ```
 
-The Portfolio and Dashboard pages call `/api/*` Pages Functions.
-To run them locally:
+The Pools, Portfolio and Dashboard pages call `/api/*` Pages Functions
+(pool data is proxied through `/api/pools` — direct browser calls to
+DefiLlama proved unreliable from some regions). To run them locally:
 
 ```bash
 npm run cf:dev     # = npm run build && npx wrangler pages dev

@@ -1,5 +1,18 @@
 # DECISIONS.md
 
+## DefiLlama proxy (July 2026)
+
+52. **All DefiLlama calls moved server-side** (`/api/pools`, `/api/pool-chart?pool=`)
+    because direct browser fetches to yields.llama.fi fail from some regions/ISPs.
+    The pools proxy trims the ~18k-pool payload to exactly the fields the UI uses
+    (mapping moved from `src/services/defillama.js` to the function) and caches
+    per warm isolate for 10 minutes; `Cache-Control: public, max-age=60,
+    s-maxage=600` lets the Cloudflare edge absorb most traffic. The chart proxy
+    keeps a bounded per-pool cache (200 entries). On upstream failure both serve
+    stale cache when available, otherwise a clear 502 — the existing
+    error-with-retry states handle it. Consequence: the /pools page now needs
+    `wrangler pages dev` locally, like Portfolio/Dashboard (README updated).
+
 ## Product deepening (July 2026, pre-Phase 3)
 
 46. **Net P&L = fees − |IL|, gas explicitly ignored.** Computed client-side from the
