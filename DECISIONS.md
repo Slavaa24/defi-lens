@@ -1,7 +1,78 @@
-# DECISIONS.md — Phase 1
+# DECISIONS.md
 
-Assumptions and judgement calls made while implementing Phase 1
-(Landing, Calculator, Pools, Portfolio, design system — no auth/DB).
+## Phase 2 (SIWE auth, Supabase, wallet manager, Dashboard)
+
+21. **On-chain discovery instead of subgraphs.** SPEC §5.5 says to query the official
+    Uniswap v3 subgraphs, but The Graph's hosted service was sunset and gateway queries
+    now require a separate `THEGRAPH_API_KEY`, which isn't among the configured env
+    vars. Positions are discovered by reading the NonfungiblePositionManager, factory
+    and pool contracts directly over Alchemy RPC (viem with batched multicall) — exact
+    data, one existing key. Fees are computed from `tokensOwed` + `feeGrowthInside`
+    deltas per SPEC §4; if any tick read fails, fees render as "—", never a wrong number.
+
+22. **SIWE via `viem/siwe`, sessions via `jose`.** No separate `siwe` package: viem
+    ships EIP-4361 helpers (message build/parse/validate + `generateSiweNonce`).
+    Signature check uses `publicClient.verifyMessage`, which also covers ERC-1271
+    smart-contract wallets and ERC-6492 pre-deploy signatures. The session is an HS256
+    JWT (`jose`) in an httpOnly `dl_session` cookie, 7-day expiry, `SameSite=Lax`,
+    `Secure` in production (SPEC §1).
+
+23. **Nonces live in a `siwe_nonces` table.** SPEC §5.4 says nonces are "stored, 5-min
+    TTL"; serverless instances share no memory, so a table is the only reliable store.
+    Nonces are single-use (deleted on verify) and expired rows are cleaned up
+    opportunistically. The table is an addition to the §3 schema.
+
+24. **Two small schema extensions.** (a) `users.last_refresh_at` backs the
+    once-per-minute refresh rate limit durably (in-memory limits reset per instance);
+    (b) `unique(wallet_id, chain, nft_token_id)` on `positions` makes refresh upserts
+    idempotent. Everything else matches §3 exactly. RLS is enabled deny-all on every
+    table: only the service-role key (serverless-only) can read or write.
+
+25. **Fee tier stored inside the `token0` jsonb.** §3 has no `fee` column, but §5.5
+    requires displaying "pair + fee tier". Rather than deviating from the schema, the
+    tier is kept as `token0.fee` (it's immutable per NFT).
+
+26. **ProGate ships with plan enforcement off.** §5.4 says free-plan users get
+    redirected to /pricing, but billing doesn't exist until Phase 4 — with enforcement
+    on, nobody could use the dashboard at all. ProGate requires sign-in now and has a
+    single `PRO_ENFORCED` flag to flip in Phase 4 (whose scope explicitly includes
+    "ProGate enforcement").
+
+27. **Wallet-scoped refresh bypasses the 1/min cooldown.** Adding a wallet triggers
+    discovery for that wallet immediately (§5.5); if that call shared the global
+    cooldown, adding two wallets in a row would silently skip discovery for the second.
+    The bypass is naturally bounded by the 5-wallet cap; the manual "Refresh" button
+    (all wallets) keeps the strict 1/min limit enforced server-side via
+    `users.last_refresh_at` and mirrored client-side with a countdown.
+
+28. **Closed positions are deleted, cautiously.** A refresh removes rows whose NFT is
+    gone or has zero liquidity — but only for chains whose discovery succeeded, so an
+    RPC outage on one chain can't wipe that chain's stored positions. Per-chain errors
+    surface in the dashboard as a warning banner instead of failing the whole refresh.
+
+29. **Entry snapshot = first detection.** IL is measured against the amounts/prices at
+    the moment DeFi Lens first saw the position (SPEC §3 "prices+amounts at first
+    detection"), not at mint — mint-time data would require historical archive queries.
+    The IL tooltip says exactly that. Metrics missing a reliable input (token without a
+    CoinGecko price, failed fee read) render as "—" with an explanatory tooltip (§4).
+
+30. **Discovery caps at 50 position NFTs per wallet per chain** to bound RPC fan-out;
+    position amounts use float math (double precision) since results feed USD displays,
+    not transactions.
+
+31. **v3 math lives server-side only.** §4 lists v3 formulas under Dashboard positions;
+    all v3 computation happens in `api/_lib/math.js` during refresh and is stored in
+    snapshots — the client only formats. `utils/ilMath.js` (v2, calculator) stays
+    unchanged and shared logic duplication is avoided.
+
+32. **RainbowKit added per the §1 stack** (deferred from Phase 1, see decision 2), with
+    a dark theme matched to the design system. The custom-styled ConnectButton shows a
+    three-state flow: Connect → Sign in (SIWE) → signed-in address chip; signing out
+    clears the session cookie but leaves the wallet connected.
+
+## Phase 1 (Landing, Calculator, Pools, Portfolio, design system)
+
+Assumptions and judgement calls made while implementing Phase 1.
 
 1. **CRA → Vite migration.** The repo contained an older Create React App prototype
    (React 19 + react-scripts). SPEC §1 mandates React 18 + Vite, so the project was
