@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint src functions tests",
-    "cf:dev": "npm run build && npx wrangler pages dev"
+    "cf:dev": "npm run build && npx wrangler pages dev dist --port 8788"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.11",
