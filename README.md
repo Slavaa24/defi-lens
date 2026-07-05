@@ -1,70 +1,63 @@
-# Getting Started with Create React App
+# DeFi Lens
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+DeFi LP analytics and monitoring SaaS. Free tier: impermanent-loss calculator, pools
+explorer, one-off portfolio view. Pro tier ($8/mo, upcoming): multi-wallet LP position
+tracking with real-time IL, fee earnings and Telegram alerts.
 
-## Available Scripts
+Full specification: [SPEC.md](./SPEC.md). Implementation decisions: [DECISIONS.md](./DECISIONS.md).
 
-In the project directory, you can run:
+**Status: Phase 1** — Landing, Calculator, Pools, Portfolio (free tier), design system.
+No auth/DB yet.
 
-### `npm start`
+## Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+React 18 + Vite · Tailwind CSS · React Router v6 · Recharts · wagmi v2 + viem ·
+@tanstack/react-query · Vercel Serverless Functions (`/api`) · Vitest
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Setup
 
-### `npm test`
+```bash
+npm install
+npm run dev        # Vite dev server (frontend only)
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+The Portfolio page calls `/api/balances`, which is a Vercel serverless function.
+To run it locally:
 
-### `npm run build`
+```bash
+npm i -g vercel
+vercel dev         # serves the SPA + /api functions together
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Environment variables (Phase 1)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+Set these in Vercel (or `.env` for `vercel dev`) — all server-side only:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+| Var | Required | Purpose |
+|-----|----------|---------|
+| `ALCHEMY_KEY` | yes (for Portfolio) | Ethereum + Base RPC for token balances |
+| `COINGECKO_KEY` | no | CoinGecko demo key for higher rate limits |
 
-### `npm run eject`
+No key ever reaches the client bundle; `/api/balances` returns a clean 503 if
+`ALCHEMY_KEY` is missing.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Scripts
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```bash
+npm run dev        # dev server
+npm run build      # production build to dist/
+npm run preview    # preview the production build
+npm run test       # Vitest (ilMath unit tests)
+npm run lint       # ESLint
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Deploy
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Push to GitHub and import the repo in Vercel — framework preset "Vite".
+`vercel.json` already contains the SPA rewrite (everything except `/api/*` → `index.html`).
+Add the env vars above in the Vercel project settings.
 
-## Learn More
+---
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+DeFi Lens is for informational purposes only and is not financial advice. Data may be
+delayed or inaccurate.

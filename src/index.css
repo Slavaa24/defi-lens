@@ -1,13 +1,46 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg text-txt-primary font-sans antialiased;
+  }
+
+  /* remove number input spinners */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+@layer components {
+  .card {
+    @apply bg-card border border-edge rounded-xl transition-colors hover:border-edge-hover;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-r from-accent-from to-accent-to text-white font-semibold rounded-lg
+      px-5 py-2.5 text-sm transition-opacity hover:opacity-90 disabled:opacity-40
+      disabled:cursor-not-allowed inline-flex items-center justify-center gap-2;
+  }
+  .btn-secondary {
+    @apply bg-card border border-edge text-txt-primary font-medium rounded-lg px-5 py-2.5
+      text-sm transition-colors hover:border-edge-hover inline-flex items-center
+      justify-center gap-2;
+  }
+  .input {
+    @apply w-full bg-bg border border-edge rounded-lg px-3.5 py-2.5 text-sm text-txt-primary
+      placeholder:text-zinc-600 outline-none transition-colors focus:border-accent-from;
+  }
+  .label {
+    @apply block text-xs text-txt-secondary mb-1.5;
+  }
 }
