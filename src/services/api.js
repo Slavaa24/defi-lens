@@ -28,7 +28,7 @@ export async function apiFetch(path, options = {}) {
     const message =
       (body && body.error) ||
       (res.status === 404
-        ? 'API route not found. In local dev run "vercel dev" to serve /api functions.'
+        ? 'API route not found. In local dev run "npm run cf:dev" (wrangler pages dev) to serve /api functions.'
         : `Request failed (${res.status})`)
     throw new ApiError(message, res.status)
   }

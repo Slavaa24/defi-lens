@@ -10,8 +10,9 @@
 /dist
 /build
 
-# vercel
-.vercel
+# cloudflare
+.wrangler
+.dev.vars
 
 # misc
 .DS_Store

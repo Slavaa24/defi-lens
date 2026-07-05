@@ -1,0 +1,6 @@
+# Cloudflare Pages configuration.
+# Static build is served from dist/; API routes live in functions/ (Pages Functions).
+name = "defi-lens"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"

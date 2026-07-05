@@ -1,0 +1,7 @@
+# Copy to .dev.vars (gitignored) to run `npx wrangler pages dev` locally.
+# Production values are set in the Cloudflare Pages dashboard as encrypted secrets.
+SUPABASE_URL=
+SUPABASE_SERVICE_KEY=
+JWT_SECRET=
+ALCHEMY_KEY=
+COINGECKO_KEY=

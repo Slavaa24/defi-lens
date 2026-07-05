@@ -1,16 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
 // Service-role client — server-side only. Never import from /src.
+// Cached at module scope: persists across requests within a warm isolate.
 let client = null
 
-export function getDb() {
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+export function getDb(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
     const err = new Error('Server is not configured (missing Supabase credentials).')
     err.status = 503
     throw err
   }
   if (!client) {
-    client = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
+    client = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
   }

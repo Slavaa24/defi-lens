@@ -2,8 +2,8 @@ import { fetchJson } from './http.js'
 
 const CG_BASE = 'https://api.coingecko.com/api/v3'
 
-function cgHeaders() {
-  const key = process.env.COINGECKO_KEY
+function cgHeaders(env) {
+  const key = env.COINGECKO_KEY
   return key ? { 'x-cg-demo-api-key': key } : {}
 }
 
@@ -14,7 +14,7 @@ const PLATFORMS = {
 }
 
 // contracts: lowercase addresses. Returns { [address]: priceUsd }
-export async function getContractPrices(chain, contracts) {
+export async function getContractPrices(chain, contracts, env) {
   const platform = PLATFORMS[chain]
   if (!platform || contracts.length === 0) return {}
   const out = {}
@@ -24,7 +24,7 @@ export async function getContractPrices(chain, contracts) {
     try {
       const data = await fetchJson(
         `${CG_BASE}/simple/token_price/${platform}?contract_addresses=${chunk.join(',')}&vs_currencies=usd`,
-        { headers: cgHeaders() }
+        { headers: cgHeaders(env) }
       )
       for (const [addr, val] of Object.entries(data)) {
         out[addr.toLowerCase()] = val?.usd ?? null
@@ -36,10 +36,10 @@ export async function getContractPrices(chain, contracts) {
   return out
 }
 
-export async function getEthPrice() {
+export async function getEthPrice(env) {
   try {
     const data = await fetchJson(`${CG_BASE}/simple/price?ids=ethereum&vs_currencies=usd`, {
-      headers: cgHeaders(),
+      headers: cgHeaders(env),
     })
     return data.ethereum?.usd ?? null
   } catch {

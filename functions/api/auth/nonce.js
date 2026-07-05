@@ -1,14 +1,13 @@
 import { generateSiweNonce } from 'viem/siwe'
 import { getDb, unwrap } from '../_lib/db.js'
+import { json, methodNotAllowed } from '../_lib/respond.js'
 
 const TTL_MS = 5 * 60_000
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+export async function onRequest({ request, env }) {
+  if (request.method !== 'GET') return methodNotAllowed()
   try {
-    const db = getDb()
+    const db = getDb(env)
     const nonce = generateSiweNonce()
     unwrap(
       await db.from('siwe_nonces').insert({
@@ -19,9 +18,9 @@ export default async function handler(req, res) {
     )
     // opportunistic cleanup of expired nonces; failure is harmless
     await db.from('siwe_nonces').delete().lt('expires_at', new Date().toISOString())
-    return res.status(200).json({ nonce })
+    return json({ nonce })
   } catch (err) {
     console.error('nonce error:', err.message)
-    return res.status(err.status || 500).json({ error: err.status ? err.message : 'Failed to issue nonce.' })
+    return json({ error: err.status ? err.message : 'Failed to issue nonce.' }, err.status || 500)
   }
 }

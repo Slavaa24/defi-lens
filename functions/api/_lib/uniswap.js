@@ -54,8 +54,8 @@ const ERC20_ABI = parseAbi([
   'function decimals() view returns (uint8)',
 ])
 
-function clientFor(chainCfg) {
-  const key = process.env.ALCHEMY_KEY
+function clientFor(chainCfg, env) {
+  const key = env.ALCHEMY_KEY
   if (!key) {
     const err = new Error('Server is not configured (missing RPC provider key).')
     err.status = 503
@@ -85,8 +85,8 @@ async function tokenMeta(client, address, cache) {
 // Discover all live v3 positions (liquidity > 0) a wallet owns on one chain.
 // Returns rows shaped for the positions table (minus wallet_id) — snapshots,
 // in_range and fee/IL metrics are already computed.
-async function discoverOnChain(chainCfg, owner) {
-  const client = clientFor(chainCfg)
+async function discoverOnChain(chainCfg, owner, env) {
+  const client = clientFor(chainCfg, env)
   const npm = { address: chainCfg.positionManager, abi: NPM_ABI }
 
   const balance = Number(
@@ -221,7 +221,7 @@ async function discoverOnChain(chainCfg, owner) {
 
   // price all involved tokens in one CoinGecko pass
   const uniqueTokens = [...new Set(results.flatMap((r) => [r.token0.address, r.token1.address]))]
-  const prices = await getContractPrices(chainCfg.name, uniqueTokens)
+  const prices = await getContractPrices(chainCfg.name, uniqueTokens, env)
 
   return results.map(({ position: p, pool, token0, token1, fees }) => {
     const { amount0: raw0, amount1: raw1 } = amountsForLiquidity({
@@ -285,8 +285,8 @@ async function discoverOnChain(chainCfg, owner) {
 
 // Discover across all supported chains. Per-chain failures are collected so
 // one chain's RPC hiccup doesn't wipe the other's results.
-export async function discoverPositions(owner) {
-  const settled = await Promise.allSettled(CHAINS.map((c) => discoverOnChain(c, owner)))
+export async function discoverPositions(owner, env) {
+  const settled = await Promise.allSettled(CHAINS.map((c) => discoverOnChain(c, owner, env)))
   const positions = []
   const errors = []
   settled.forEach((s, i) => {

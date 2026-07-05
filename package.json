@@ -1,6 +1,6 @@
 {
   "name": "defi-lens",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "eslint src api tests"
+    "lint": "eslint src functions tests",
+    "cf:dev": "npm run build && npx wrangler pages dev"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.2.11",

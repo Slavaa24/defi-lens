@@ -1,5 +1,6 @@
 import { fetchJson } from './_lib/http.js'
 import { getContractPrices, getEthPrice } from './_lib/prices.js'
+import { json, methodNotAllowed } from './_lib/respond.js'
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/
 const DUST_USD = 1
@@ -10,7 +11,7 @@ const CHAINS = [
   { name: 'Base', alchemy: 'base-mainnet' },
 ]
 
-// naive in-memory guards — good enough per warm serverless instance
+// naive in-memory guards — good enough per warm Workers isolate
 const cache = new Map() // address -> { data, expires }
 const rateBuckets = new Map() // ip -> { count, resetAt }
 const CACHE_TTL_MS = 60_000
@@ -28,8 +29,8 @@ function rateLimited(ip) {
   return bucket.count > RATE_LIMIT
 }
 
-async function alchemyRpc(network, method, params) {
-  const key = process.env.ALCHEMY_KEY
+async function alchemyRpc(network, method, params, env) {
+  const key = env.ALCHEMY_KEY
   const body = await fetchJson(`https://${network}.g.alchemy.com/v2/${key}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -39,10 +40,10 @@ async function alchemyRpc(network, method, params) {
   return body.result
 }
 
-async function chainBalances(chain, address) {
+async function chainBalances(chain, address, env) {
   const [nativeHex, tokenRes] = await Promise.all([
-    alchemyRpc(chain.alchemy, 'eth_getBalance', [address, 'latest']),
-    alchemyRpc(chain.alchemy, 'alchemy_getTokenBalances', [address, 'erc20']),
+    alchemyRpc(chain.alchemy, 'eth_getBalance', [address, 'latest'], env),
+    alchemyRpc(chain.alchemy, 'alchemy_getTokenBalances', [address, 'erc20'], env),
   ])
 
   const nonZero = (tokenRes.tokenBalances || [])
@@ -51,12 +52,12 @@ async function chainBalances(chain, address) {
 
   const metadata = await Promise.all(
     nonZero.map((t) =>
-      alchemyRpc(chain.alchemy, 'alchemy_getTokenMetadata', [t.contractAddress]).catch(() => null)
+      alchemyRpc(chain.alchemy, 'alchemy_getTokenMetadata', [t.contractAddress], env).catch(() => null)
     )
   )
 
   const contracts = nonZero.map((t) => t.contractAddress.toLowerCase())
-  const prices = await getContractPrices(chain.name, contracts)
+  const prices = await getContractPrices(chain.name, contracts, env)
 
   const tokens = []
 
@@ -95,38 +96,36 @@ async function chainBalances(chain, address) {
   return tokens
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+export async function onRequest({ request, env }) {
+  if (request.method !== 'GET') return methodNotAllowed()
 
   const ip =
-    (req.headers['x-forwarded-for'] || '').split(',')[0].trim() ||
-    req.socket?.remoteAddress ||
+    request.headers.get('cf-connecting-ip') ||
+    (request.headers.get('x-forwarded-for') || '').split(',')[0].trim() ||
     'unknown'
   if (rateLimited(ip)) {
-    return res.status(429).json({ error: 'Too many requests — try again in a few minutes.' })
+    return json({ error: 'Too many requests — try again in a few minutes.' }, 429)
   }
 
-  const address = String(req.query.address || '').trim()
+  const address = String(new URL(request.url).searchParams.get('address') || '').trim()
   if (!ADDRESS_RE.test(address)) {
-    return res.status(400).json({ error: 'Invalid address: expected 0x followed by 40 hex characters.' })
+    return json({ error: 'Invalid address: expected 0x followed by 40 hex characters.' }, 400)
   }
 
-  if (!process.env.ALCHEMY_KEY) {
-    return res.status(503).json({ error: 'Server is not configured (missing RPC provider key).' })
+  if (!env.ALCHEMY_KEY) {
+    return json({ error: 'Server is not configured (missing RPC provider key).' }, 503)
   }
 
   const cacheKey = address.toLowerCase()
   const cached = cache.get(cacheKey)
   if (cached && cached.expires > Date.now()) {
-    return res.status(200).json(cached.data)
+    return json(cached.data)
   }
 
   try {
     const [ethPrice, ...perChain] = await Promise.all([
-      getEthPrice(),
-      ...CHAINS.map((c) => chainBalances(c, address)),
+      getEthPrice(env),
+      ...CHAINS.map((c) => chainBalances(c, address, env)),
     ])
 
     let tokens = perChain.flat()
@@ -144,9 +143,9 @@ export default async function handler(req, res) {
     const data = { address, tokens, totalUsd }
 
     cache.set(cacheKey, { data, expires: Date.now() + CACHE_TTL_MS })
-    return res.status(200).json(data)
+    return json(data)
   } catch (err) {
     console.error('balances error:', err.message)
-    return res.status(502).json({ error: 'Failed to fetch balances from upstream providers.' })
+    return json({ error: 'Failed to fetch balances from upstream providers.' }, 502)
   }
 }

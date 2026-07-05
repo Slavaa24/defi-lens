@@ -6,7 +6,7 @@ export default [
   { ignores: ['dist', 'node_modules'] },
   js.configs.recommended,
   {
-    files: ['src/**/*.{js,jsx}', 'api/**/*.js', 'tests/**/*.js'],
+    files: ['src/**/*.{js,jsx}', 'functions/**/*.js', 'tests/**/*.js'],
     plugins: { react, 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 2023,
@@ -25,7 +25,10 @@ export default [
         clearInterval: 'readonly',
         TextEncoder: 'readonly',
         AbortController: 'readonly',
+        URL: 'readonly',
         URLSearchParams: 'readonly',
+        Request: 'readonly',
+        Response: 'readonly',
         Intl: 'readonly',
         process: 'readonly',
       },

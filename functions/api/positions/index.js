@@ -1,5 +1,6 @@
 import { getDb, unwrap } from '../_lib/db.js'
-import { requireSession } from '../_lib/auth.js'
+import { getSession, unauthorized } from '../_lib/auth.js'
+import { json, readJson, methodNotAllowed } from '../_lib/respond.js'
 import { discoverPositions, withIl } from '../_lib/uniswap.js'
 
 const REFRESH_COOLDOWN_MS = 60_000
@@ -31,8 +32,8 @@ async function loadPositions(db, walletIds) {
 // new position -> insert with entry_snapshot = current state;
 // existing      -> update liquidity/last_snapshot/in_range;
 // closed        -> delete (liquidity now 0 or NFT no longer owned).
-async function refreshWallet(db, wallet) {
-  const { positions: found, errors } = await discoverPositions(wallet.address)
+async function refreshWallet(db, wallet, env) {
+  const { positions: found, errors } = await discoverPositions(wallet.address, env)
 
   const existing = unwrap(
     await db.from('positions').select().eq('wallet_id', wallet.id),
@@ -89,27 +90,28 @@ async function refreshWallet(db, wallet) {
   return errors
 }
 
-export default async function handler(req, res) {
-  const session = await requireSession(req, res)
-  if (!session) return
+export async function onRequest({ request, env }) {
+  const session = await getSession(request, env)
+  if (!session) return unauthorized()
 
   try {
-    const db = getDb()
+    const db = getDb(env)
     const wallets = await loadWallets(db, session.userId)
 
-    if (req.method === 'GET') {
+    if (request.method === 'GET') {
       const positions = await loadPositions(db, wallets.map((w) => w.id))
-      return res.status(200).json({ positions, wallets })
+      return json({ positions, wallets })
     }
 
-    if (req.method === 'POST') {
-      const walletId = String(req.body?.walletId || '').trim() || null
+    if (request.method === 'POST') {
+      const body = (await readJson(request)) || {}
+      const walletId = String(body.walletId || '').trim() || null
       let targets = wallets
       if (walletId) {
         // wallet-scoped refresh (fired right after adding a wallet) skips the
         // cooldown — it's naturally limited by the 5-wallet cap
         targets = wallets.filter((w) => w.id === walletId)
-        if (targets.length === 0) return res.status(404).json({ error: 'Wallet not found.' })
+        if (targets.length === 0) return json({ error: 'Wallet not found.' }, 404)
       } else {
         const user = unwrap(
           await db.from('users').select('last_refresh_at').eq('id', session.userId).single(),
@@ -119,8 +121,11 @@ export default async function handler(req, res) {
         const elapsed = Date.now() - last
         if (elapsed < REFRESH_COOLDOWN_MS) {
           const retryAfter = Math.ceil((REFRESH_COOLDOWN_MS - elapsed) / 1000)
-          res.setHeader('Retry-After', String(retryAfter))
-          return res.status(429).json({ error: `Refresh is limited to once a minute — try again in ${retryAfter}s.`, retryAfter })
+          return json(
+            { error: `Refresh is limited to once a minute — try again in ${retryAfter}s.`, retryAfter },
+            429,
+            { 'Retry-After': String(retryAfter) }
+          )
         }
         unwrap(
           await db.from('users').update({ last_refresh_at: new Date().toISOString() }).eq('id', session.userId),
@@ -131,7 +136,7 @@ export default async function handler(req, res) {
       const errors = []
       for (const wallet of targets) {
         try {
-          errors.push(...(await refreshWallet(db, wallet)))
+          errors.push(...(await refreshWallet(db, wallet, env)))
         } catch (err) {
           console.error(`refresh ${wallet.address} failed:`, err.message)
           errors.push({ chain: 'all', wallet: wallet.address, message: 'Position discovery failed for this wallet.' })
@@ -139,12 +144,12 @@ export default async function handler(req, res) {
       }
 
       const positions = await loadPositions(db, wallets.map((w) => w.id))
-      return res.status(200).json({ positions, wallets, errors })
+      return json({ positions, wallets, errors })
     }
 
-    return res.status(405).json({ error: 'Method not allowed' })
+    return methodNotAllowed()
   } catch (err) {
     console.error('positions error:', err.message)
-    return res.status(err.status || 500).json({ error: err.status ? err.message : 'Position operation failed.' })
+    return json({ error: err.status ? err.message : 'Position operation failed.' }, err.status || 500)
   }
 }
